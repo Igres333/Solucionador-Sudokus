@@ -1,13 +1,12 @@
 import time
 
 # %% --------------------------------------------------------------------------
-# 
+#
 # LISTADO DE CONTRADICCIONES
 # --------------------------
 # nº1: Celda vacía sin candidatos
 # nº2: Valor faltante en fila/columna/bloque que no puede estar en ninguna celda
-# nº3: Una celda con un candidato que no puede ir en ninguna posición dentro de su
-#      fila/columna/bloque
+# nº3: Una celda con un candidato que no puede ir en su fila/columna/bloque
 #
 #
 # %% --------------------------------------------------------------------------
@@ -32,7 +31,7 @@ def comprobar_sudoku(sudoku):
     if len(sudoku) != 9 or any(len(fila) != 9 for fila in sudoku):
         return False
     
-    # Comprobar tipo y rango de valores
+    # Comprobar tipo y rango valores
     for fila in sudoku:
         for val in fila:
             if isinstance(val, bool) or not isinstance(val, int) or val < 0 or val > 9:
@@ -48,7 +47,7 @@ def comprobar_sudoku(sudoku):
         columna = [sudoku[x][i] for x in range(9) if sudoku[x][i] != 0]
         if len(columna) != len(set(columna)):
             return False
-        
+    
     # Comprobar bloques 3x3
     for bi in range(0, 9, 3):
         for bj in range(0, 9, 3):
@@ -69,10 +68,10 @@ def calcular_candidatos(sudoku):
     for i in range(9):
         for j in range(9):
             if sudoku[i][j] == 0:
-                usados = valores_fila(sudoku, i) | valores_columna(sudoku, j) \
-                         | valores_bloque(sudoku, i, j)
+                usados = valores_fila(sudoku, i) | valores_columna(sudoku, j) | \
+                         valores_bloque(sudoku, i, j)
                 candidatos[i][j] = set(range(1, 10)) - usados
-                if not candidatos[i][j]: 
+                if not candidatos[i][j]:
                     return None  # Contradicción nº1
     return candidatos
 
@@ -93,21 +92,21 @@ def actualizar_candidatos(sudoku, celda, candidatos):
         # Fila
         if sudoku[i][x] == 0:
             candidatos[i][x].discard(val)
-            if not candidatos[i][x]: 
+            if not candidatos[i][x]:
                 return False  # Contradicción nº1
         # Columna
-        if sudoku[x][j] == 0: 
+        if sudoku[x][j] == 0:
             candidatos[x][j].discard(val)
-            if not candidatos[x][j]: 
+            if not candidatos[x][j]:
                 return False  # Contradicción nº1
-    
+        
     # Actualiza bloque
     bi, bj = 3 * (i // 3), 3 * (j // 3)
     for x in range(3):
         for y in range(3):
             if sudoku[bi + x][bj + y] == 0:
                 candidatos[bi + x][bj + y].discard(val)
-                if not candidatos[bi + x][bj + y]: 
+                if not candidatos[bi + x][bj + y]:
                     return False  # Contradicción nº1
     
     return True
@@ -139,10 +138,10 @@ def aplicar_logica(sudoku, candidatos):
         def colocar_hidden_unidad(celdas):
             # celdas: lista de (i, j) donde aplicaremos la lógica
             nonlocal progreso
-            presentes = {sudoku[i][j] for i, j in celdas} - {0}
+            presentes = set(sudoku[i][j] for i, j in celdas) - {0}
             faltan = set(range(1, 10)) - presentes
             contador = {d: [] for d in faltan}
-            for (i, j) in celdas:
+            for i, j in celdas:
                 if sudoku[i][j] == 0:
                     if not candidatos[i][j].issubset(faltan):
                         return False  # Contradicción nº3
@@ -172,7 +171,7 @@ def aplicar_logica(sudoku, candidatos):
                 celdas = [(bi + x, bj + y) for x in range(3) for y in range(3)]
                 if not colocar_hidden_unidad(celdas):
                     return False
-    
+        
     return True
 
 
@@ -220,7 +219,7 @@ def realizar_cambios(sudoku, candidatos):
             return True
     
     return False
-    
+
 
 # %% --------------------------------------------------------------------------
 # API PRINCIPAL
@@ -262,7 +261,6 @@ def solucionar_sudoku_avanzado(sudoku):
 # %% --------------------------------------------------------------------------
 # EJEMPLO DE USO
 # -----------------------------------------------------------------------------
-        
 if __name__ == '__main__':
     sudokus = [None for _ in range(5)]
     
@@ -346,11 +344,6 @@ if __name__ == '__main__':
         elif idx == 3:
             print("Solución válida encontrada")
             imprimir_sudoku_como_lista(sudoku)
-            print(f"Tiempo = {t_final - t_inicial:.7f}s")
+            print(f"Tiempo = {t_final - t_inicial:.6}s")
         print("\n")
-
-
-
-
-
 
