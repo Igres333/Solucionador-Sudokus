@@ -3,8 +3,8 @@
 # LISTADO DE CONTRADICCIONES
 # --------------------------
 # nº1: Celda vacía sin candidatos posibles
-# nº2: Valor faltante en fila/columna/bloque que no es candidato de ninguna de sus celdas
-# nº3: Celda con un candidato que ya se encuentra en su fila/columna/bloque
+# nº2: Valor que falta en una fila/columna/bloque y no puede ir en ninguna de sus celdas
+# nº3: Celda con un candidato que no puede ir en su fila/columna/bloque
 #
 # ----------------------------------------------------------------------------------------
 
