@@ -2,23 +2,44 @@
 #
 # LISTADO DE CONTRADICCIONES
 # --------------------------
-# nº1: Celda vacía sin candidatos posibles
-# nº2: Valor que falta en una fila/columna/bloque y no puede ir en ninguna de sus celdas
-# nº3: Celda con un candidato que no puede ir en su fila/columna/bloque
+# nº1: Celda vacía sin candidatos
+# nº2: Dígito que falta en una unidad y no cabe en ninguna de sus celdas vacías
+# nº3: Dos dígitos que solo caben en la misma celda de una unidad
+#
+# Unidad = fila, columna o bloque 3x3
 #
 # ----------------------------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------------------------
+# UNIDADES Y VECINOS (precalculados una sola vez)
+# ----------------------------------------------------------------------------------------
+FILAS    = [[(i, j) for j in range(9)] for i in range(9)]
+COLUMNAS = [[(i, j) for i in range(9)] for j in range(9)]
+BLOQUES  = [[(bi + x, bj + y) for x in range(3) for y in range(3)]
+            for bi in range(0, 9, 3) for bj in range(0, 9, 3)]
+UNIDADES = FILAS + COLUMNAS + BLOQUES
+
+# Para cada celda, las 20 celdas que comparten fila, columna o bloque con ella
+VECINOS = {
+    (i, j): {c for u in UNIDADES if (i, j) in u for c in u} - {(i, j)}
+    for i in range(9) for j in range(9)
+}
 
 
 # ----------------------------------------------------------------------------------------
 # FUNCIONES DE AYUDA
 # ----------------------------------------------------------------------------------------
 def valores_fila(sudoku, i):
+    """Devuelve el set de valores colocados en la fila i"""
     return set(sudoku[i]) - {0}
 
 def valores_columna(sudoku, j):
+    """Devuelve el set de valores colocados en la columna j"""
     return set(sudoku[x][j] for x in range(9)) - {0}
 
 def valores_bloque(sudoku, i, j):
+    """Devuelve el set de valores colocados en el bloque 3x3 que contiene la celda (i, j)"""
     bi, bj = 3 * (i // 3), 3 * (j // 3)
     return set(sudoku[bi + x][bj + y] for x in range(3) for y in range(3)) - {0}
 
@@ -27,6 +48,8 @@ def valores_bloque(sudoku, i, j):
 # VALIDACIÓN DEL SUDOKU
 # ----------------------------------------------------------------------------------------
 def comprobar_sudoku(sudoku):
+    """Comprueba que el sudoku sea una matriz 9x9 de enteros entre 0 y 9 sin valores
+       repetidos en ninguna unidad. Los 0 representan celdas vacías"""
     # Comprobamos dimensiones
     if len(sudoku) != 9 or any(len(fila) != 9 for fila in sudoku):
         return False
@@ -34,22 +57,15 @@ def comprobar_sudoku(sudoku):
     # Comprobamos tipo y rango de valores
     for fila in sudoku:
         for val in fila:
+            # bool es subclase de int: True/False no son valores válidos
             if not isinstance(val, int) or isinstance(val, bool) or val < 0 or val > 9:
                 return False
 
-    # Comprobamos filas y columnas
-    for i in range(9):
-        fila = [x for x in sudoku[i] if x != 0]
-        columna = [sudoku[x][i] for x in range(9) if sudoku[x][i] != 0]
-        if len(set(fila)) != len(fila) or len(set(columna)) != len(columna):
+    # Comprobamos que no haya repetidos en filas, columnas ni bloques
+    for celdas in UNIDADES:
+        valores = [sudoku[i][j] for i, j in celdas if sudoku[i][j] != 0]
+        if len(set(valores)) != len(valores):
             return False
-
-    # Comprobamos bloques 3x3
-    for bi in range(0, 9, 3):
-        for bj in range(0, 9, 3):
-            bloque = [sudoku[bi + x][bj + y] for x in range(3) for y in range(3) if sudoku[bi + x][bj + y] != 0]
-            if len(set(bloque)) != len(bloque):
-                return False
 
     return True
 
@@ -58,7 +74,8 @@ def comprobar_sudoku(sudoku):
 # CONTROL DE CANDIDATOS
 # ----------------------------------------------------------------------------------------
 def calcular_candidatos(sudoku):
-    '''Devuelve una matriz 9x9 de sets (candidatos por celda)'''
+    """Devuelve una matriz 9x9 de sets con los candidatos de cada celda (vacío en las
+       celdas ya colocadas), o None si alguna celda vacía se queda sin candidatos"""
     candidatos = [[set() for _ in range(9)] for _ in range(9)]
 
     for i in range(9):
@@ -68,13 +85,13 @@ def calcular_candidatos(sudoku):
                 candidatos[i][j] = set(range(1, 10)) - usados
                 if not candidatos[i][j]:
                     return None  # Contradicción nº1
-                
+
     return candidatos
 
 
 def actualizar_candidatos(sudoku, candidatos, celda):
-    '''Propaga la asignación recién hecha en celda = (i, j), eliminando su valor de los
-       candidatos vecinos'''
+    """Propaga la asignación recién hecha en celda = (i, j), eliminando su valor de los
+       candidatos de sus vecinos. Devuelve False si algún vecino se queda sin candidatos"""
     i, j = celda
     val = sudoku[i][j]
     if val == 0:
@@ -83,25 +100,11 @@ def actualizar_candidatos(sudoku, candidatos, celda):
     # La celda asignada ya no tiene candidatos
     candidatos[i][j].clear()
 
-    # Actualizamos fila y columna
-    for x in range(9):
-        if sudoku[i][x] == 0:
-            candidatos[i][x].discard(val)
-            if not candidatos[i][x]:
+    for x, y in VECINOS[celda]:
+        if sudoku[x][y] == 0:
+            candidatos[x][y].discard(val)
+            if not candidatos[x][y]:
                 return False  # Contradicción nº1
-        if sudoku[x][j] == 0:
-            candidatos[x][j].discard(val)
-            if not candidatos[x][j]:
-                return False  # Contradicción nº1
-
-    # Actualizamos bloque
-    bi, bj = 3 * (i // 3), 3 * (j // 3)
-    for x in range(3):
-        for y in range(3):
-            if sudoku[bi + x][bj + y] == 0:
-                candidatos[bi + x][bj + y].discard(val)
-                if not candidatos[bi + x][bj + y]:
-                    return False  # Contradicción nº1
 
     return True
 
@@ -109,80 +112,79 @@ def actualizar_candidatos(sudoku, candidatos, celda):
 # ----------------------------------------------------------------------------------------
 # LÓGICA (NAKED SINGLES Y HIDDEN SINGLES)
 # ----------------------------------------------------------------------------------------
+def colocar_hidden(sudoku, candidatos, celdas):
+    """Busca hidden singles en una unidad (lista de celdas (i, j)) y los coloca.
+       Devuelve (ok, progreso): ok=False si hay contradicción, progreso=True si se colocó algo"""
+    presentes = set(sudoku[i][j] for i, j in celdas) - {0}
+    faltan = set(range(1, 10)) - presentes
+    contador = {d: [] for d in faltan}  # dígito -> celdas donde puede ir
+
+    for i, j in celdas:
+        if sudoku[i][j] == 0:
+            for d in candidatos[i][j]:
+                contador[d].append((i, j))
+
+    progreso = False
+    for d, sitios in contador.items():
+        if not sitios:
+            return False, False  # Contradicción nº2
+        if len(sitios) == 1:
+            i, j = sitios[0]
+            if sudoku[i][j] != 0:
+                return False, False  # Contradicción nº3
+            sudoku[i][j] = d
+            if not actualizar_candidatos(sudoku, candidatos, (i, j)):
+                return False, False  # Contradicción nº1
+            progreso = True
+
+    return True, progreso
+
+
 def aplicar_logica(sudoku, candidatos):
-    '''Naked singles + Hidden singles con sets. Devuelve False si hay contradicción'''
+    """Aplica naked singles y hidden singles hasta que no haya más progreso.
+       Devuelve False si se encuentra una contradicción"""
     progreso_total = True
     while progreso_total:
         progreso_total = False
 
-        # Naked singles
+        # Naked singles: celdas con un único candidato
         progreso_naked = True
         while progreso_naked:
             progreso_naked = False
             for i in range(9):
                 for j in range(9):
                     if sudoku[i][j] == 0 and len(candidatos[i][j]) == 1:
-                        val = next(iter(candidatos[i][j]))
-                        sudoku[i][j] = val
+                        sudoku[i][j] = next(iter(candidatos[i][j]))
                         if not actualizar_candidatos(sudoku, candidatos, (i, j)):
                             return False  # Contradicción nº1
                         progreso_naked = True
 
-        # Hidden singles
-        def colocar_hidden(celdas):
-            # celdas: lista de (i, j) donde aplicar la lógica
-            nonlocal progreso_total
-            presentes = set(sudoku[i][j] for i, j in celdas) - {0}
-            faltan = set(range(1, 10)) - presentes
-            contador = {d: [] for d in faltan}
-
-            for i, j in celdas:
-                if sudoku[i][j] == 0:
-                    if not candidatos[i][j].issubset(faltan):
-                        return False  # Contradicción nº3
-                    for d in candidatos[i][j]:
-                        contador[d].append((i, j))
-
-            for d, sitios in contador.items():
-                if not sitios:
-                    return False  # Contradicción nº2
-                if len(sitios) == 1:
-                    i, j = sitios[0]
-                    sudoku[i][j] = d
-                    if not actualizar_candidatos(sudoku, candidatos, (i, j)):
-                        return False  # Contradicción nº1
-                    progreso_total = True
-
-            return True
-
-        # Buscarmoshidden singles en filas y columnas
-        for i in range(9):
-            if not colocar_hidden([(i, j) for j in range(9)]) or not colocar_hidden([(j, i) for j in range(9)]):
+        # Hidden singles: dígitos que solo caben en una celda de su unidad
+        for celdas in UNIDADES:
+            ok, progreso = colocar_hidden(sudoku, candidatos, celdas)
+            if not ok:
                 return False
-
-        # Buscamos hidden singles en bloques
-        for bi in range(0, 9, 3):
-            for bj in range(0, 9, 3):
-                celdas = [(bi + x, bj + y) for x in range(3) for y in range(3)]
-                if not colocar_hidden(celdas):
-                    return False
+            if progreso:
+                progreso_total = True
 
     return True
 
 
 # ----------------------------------------------------------------------------------------
-# BÚSQUEDA DE LA MEJOR CELDA (MRV)
+# BACKTRACKING CON MRV
 # ----------------------------------------------------------------------------------------
-def realizar_cambios(sudoku, candidatos):
-    # Aplicamos lógica
+def resolver_recursivo(sudoku, candidatos):
+    """Resuelve el sudoku in situ combinando lógica y backtracking. En cada nivel se
+       ramifica sobre la celda con menos candidatos (MRV). Devuelve True si lo resuelve"""
     if not aplicar_logica(sudoku, candidatos):
         return False
 
     # Si ya está resuelto
-    if all(not 0 in fila for fila in sudoku):
+    if all(0 not in fila for fila in sudoku):
         return True
 
-    # MRV: celda con menos candidatos
+    # MRV: celda con menos candidatos. Tras aplicar_logica no quedan celdas con uno
+    # solo, así que si encontramos una con dos no hace falta seguir buscando
     min_candidatos = 10
     mejor_celda = None
     for i in range(9):
@@ -198,7 +200,7 @@ def realizar_cambios(sudoku, candidatos):
     if mejor_celda is None:
         return False
 
-    # Proponemos un cambio y volvemos a llamar a la función recursiva
+    # Probamos cada candidato de la celda elegida sobre una copia y seguimos recursivamente
     i, j = mejor_celda
     for val in sorted(candidatos[i][j]):
         copia_sudoku = [fila[:] for fila in sudoku]
@@ -206,13 +208,12 @@ def realizar_cambios(sudoku, candidatos):
         copia_sudoku[i][j] = val
 
         if not actualizar_candidatos(copia_sudoku, copia_candidatos, (i, j)):
-            continue  # Rama muerta, probamos el siguiente val
+            continue  # Rama muerta, probamos el siguiente valor
 
-        if realizar_cambios(copia_sudoku, copia_candidatos):
+        if resolver_recursivo(copia_sudoku, copia_candidatos):
+            # Volcamos la solución; los candidatos ya no se van a usar
             for x in range(9):
-                sudoku[x][:] = copia_sudoku[x][:]
-                for y in range(9):
-                    candidatos[x][y] = copia_candidatos[x][y]
+                sudoku[x][:] = copia_sudoku[x]
             return True
 
     return False
@@ -222,20 +223,22 @@ def realizar_cambios(sudoku, candidatos):
 # API PRINCIPAL
 # ----------------------------------------------------------------------------------------
 def imprimir_sudoku_como_lista(sudoku):
+    """Imprime el sudoku con formato de lista de Python"""
     print("Sudoku = [")
     for fila in sudoku:
         print(str(fila) + ",")
     print("]")
 
 def solucionar_sudoku_avanzado(sudoku):
-    '''
-    Returns
-    -------
+    """Resuelve el sudoku in situ (los 0 representan celdas vacías).
+
+    Devuelve
+    --------
         0: Sudoku inválido
         1: Sudoku sin solución
         2: Error. Algo no fue bien
         3: Solución válida encontrada
-    '''
+    """
     # Comprobamos validez del sudoku propuesto
     if not comprobar_sudoku(sudoku):
         return 0
@@ -245,7 +248,7 @@ def solucionar_sudoku_avanzado(sudoku):
     if candidatos is None:
         return 1
 
-    if not realizar_cambios(sudoku, candidatos):
+    if not resolver_recursivo(sudoku, candidatos):
         return 1
 
     # Comprobamos que el sudoku esté bien resuelto
