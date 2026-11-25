@@ -189,9 +189,8 @@ def resolver_recursivo(sudoku, candidatos):
     mejor_celda = None
     for i in range(9):
         for j in range(9):
-            n = len(candidatos[i][j])
-            if sudoku[i][j] == 0 and n < min_candidatos:
-                min_candidatos = n
+            if sudoku[i][j] == 0 and len(candidatos[i][j]) < min_candidatos:
+                min_candidatos = len(candidatos[i][j])
                 mejor_celda = (i, j)
                 if min_candidatos == 2:
                     break
