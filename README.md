@@ -4,7 +4,14 @@ Resuelve sudokus 9×9 de cualquier dificultad, incluidos los considerados más d
 (*AI Escargot*, *Everest* o sudokus de 17 pistas), normalmente en milisegundos.
 Incluye una interfaz gráfica sencilla con Tkinter.
 
-Python 3 puro, sin dependencias externas.
+Incluye dos implementaciones del mismo algoritmo:
+
+- **`Solucionador_Sudokus_Avanzado.py`**: candidatos como `set` de Python. Más fácil de leer.
+- **`Solucionador_Sudokus_Avanzado_Bitmask.py`**: candidatos como enteros de 9 bits.
+  Misma API y mismo algoritmo, unas 3-4 veces más rápida.
+
+Python 3 puro, sin dependencias externas (la versión con bitmasks requiere Python 3.10+
+por `int.bit_count()`).
 
 ## Cómo funciona
 
@@ -21,8 +28,28 @@ En cada paso se detectan contradicciones para podar ramas muertas cuanto antes:
 | nº | Contradicción |
 |----|---------------|
 | 1  | Celda vacía sin candidatos |
-| 2  | Valor que falta en una fila/columna/bloque y no puede ir en ninguna de sus celdas |
-| 3  | Celda con un candidato que no puede ir en su fila/columna/bloque |
+| 2  | Dígito que falta en una unidad y no cabe en ninguna de sus celdas vacías |
+| 3  | Dos dígitos que solo caben en la misma celda de una unidad |
+
+*Unidad* = fila, columna o bloque 3×3. Las unidades y los 20 vecinos de cada celda se
+precalculan una sola vez al cargar el módulo.
+
+### Versión con bitmasks
+
+En `Solucionador_Sudokus_Avanzado_Bitmask.py` los candidatos de cada celda se guardan en un
+entero donde el bit `d - 1` está activo si el dígito `d` es candidato (p. ej. `0b000010101`
+= {1, 3, 5}). Así las operaciones sobre candidatos son operaciones de bits:
+
+| Operación | Código |
+|-----------|--------|
+| Añadir `d` | `mask \|= BIT[d]` |
+| Quitar `d` | `mask &= ~BIT[d]` |
+| ¿Es candidato? | `mask & BIT[d]` |
+| Nº de candidatos | `mask.bit_count()` |
+| ¿Un solo candidato? | `mask & (mask - 1) == 0` |
+
+Los *hidden singles* se detectan con dos máscaras por unidad (dígitos que aparecen al menos
+una vez y al menos dos veces), y copiar el estado en el backtracking es copiar listas de enteros.
 
 ## Uso
 
@@ -40,11 +67,21 @@ Escribe los números conocidos, deja vacías las demás celdas y pulsa **Resolve
 ### Ejemplos por consola
 
 ```bash
-python3 Solucionador_Sudokus_Avanzado.py
+python3 Solucionador_Sudokus_Avanzado.py          # versión con sets
+python3 Solucionador_Sudokus_Avanzado_Bitmask.py  # versión con bitmasks
 ```
 
-Resuelve cinco sudokus de ejemplo (AI Escargot, Everest, uno de 17 pistas, uno de dificultad
-media y uno sin solución) y muestra la solución y el tiempo empleado.
+Resuelven cinco sudokus de ejemplo (AI Escargot, Everest, uno de 17 pistas, uno de dificultad
+media y uno sin solución) y muestran la solución y el tiempo empleado.
+
+Tiempos orientativos (Python 3.12):
+
+| Sudoku | Sets | Bitmasks |
+|--------|------|----------|
+| AI Escargot | ~4,4 ms | ~1,2 ms |
+| Everest | ~33 ms | ~9 ms |
+| 17 pistas | ~3,5 ms | ~1,1 ms |
+| Dificultad media | ~0,24 ms | ~0,10 ms |
 
 ### Desde código
 
@@ -66,6 +103,12 @@ sudoku = [
 resultado = solucionar_sudoku_avanzado(sudoku)  # modifica `sudoku` en el sitio
 ```
 
+Para usar la versión con bitmasks basta con cambiar el import:
+
+```python
+from Solucionador_Sudokus_Avanzado_Bitmask import solucionar_sudoku_avanzado
+```
+
 Valores de retorno:
 
 | Código | Significado |
@@ -77,5 +120,6 @@ Valores de retorno:
 
 ## Archivos
 
-- `Solucionador_Sudokus_Avanzado.py`: el algoritmo y los ejemplos.
-- `Interfaz_Usuario.py`: la interfaz gráfica con Tkinter.
+- `Solucionador_Sudokus_Avanzado.py`: el algoritmo (candidatos con `set`) y los ejemplos.
+- `Solucionador_Sudokus_Avanzado_Bitmask.py`: el mismo algoritmo con candidatos en bitmasks.
+- `Interfaz_Usuario.py`: la interfaz gráfica con Tkinter (usa la versión con sets).
